@@ -18,6 +18,8 @@ cleanup() {
     clear
     exit 0
 }
+# nota: stop_player (definida más abajo) hace lo mismo pero sin salir del script,
+# se usa dentro del bucle cuando se retira o cambia el disco.
 trap cleanup EXIT INT TERM
 
 # --- comprobaciones previas ---
@@ -28,12 +30,31 @@ fi
 
 [ -p "$FIFO" ] || mkfifo "$FIFO"
 
+PLAYER_STARTED=0
+
 start_player() {
     : > "$LOGFILE"
     # abrimos la fifo en el descriptor 3 para que no se cierre entre comandos
     exec 3<>"$FIFO"
-    mplayer -slave -quiet -input file="$FIFO" "cdda://1-99:$DEVICE" >"$LOGFILE" 2>&1 &
+    # el device va con -cdrom-device; en cdda://ini-fin:velocidad, lo que sigue a ":" es velocidad, no un path
+    mplayer -slave -quiet -input file="$FIFO" -cdrom-device "$DEVICE" "cdda://1-99" >"$LOGFILE" 2>&1 &
     MPLAYER_PID=$!
+    PLAYER_STARTED=1
+}
+
+stop_player() {
+    [ -n "$MPLAYER_PID" ] && kill "$MPLAYER_PID" 2>/dev/null
+    exec 3>&- 2>/dev/null
+    MPLAYER_PID=""
+    PLAYER_STARTED=0
+}
+
+disc_present() {
+    if command -v cd-discid >/dev/null 2>&1; then
+        cd-discid "$DEVICE" >/dev/null 2>&1
+    else
+        [ -e "$DEVICE" ]
+    fi
 }
 
 send_cmd() {
@@ -69,8 +90,6 @@ toggle_shuffle() {
         send_cmd "pt_step $(( (RANDOM % 10) + 1 ))"
     fi
 }
-
-start_player
 
 W=70   # ancho de línea usado para "pisar" el contenido anterior sin parpadeo
 clear  # esto se hace UNA sola vez, no en cada vuelta del bucle
@@ -111,9 +130,16 @@ while true; do
         q|Q) cleanup ;;
     esac
 
-    # si el proceso de mplayer murió (p.ej. se sacó el CD), lo relanzamos
-    if ! kill -0 "$MPLAYER_PID" 2>/dev/null; then
-        exec 3>&- 2>/dev/null
-        start_player
+    if disc_present; then
+        # hay disco: si no está sonando (recién insertado o mplayer murió), arrancamos
+        if [ "$PLAYER_STARTED" -eq 0 ] || ! kill -0 "$MPLAYER_PID" 2>/dev/null; then
+            stop_player
+            start_player
+        fi
+    else
+        # no hay disco: si estaba sonando, lo detenemos para no dejar mplayer colgado
+        if [ "$PLAYER_STARTED" -eq 1 ]; then
+            stop_player
+        fi
     fi
 done

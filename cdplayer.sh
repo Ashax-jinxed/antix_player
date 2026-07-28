@@ -72,25 +72,28 @@ toggle_shuffle() {
 
 start_player
 
+W=70   # ancho de línea usado para "pisar" el contenido anterior sin parpadeo
+clear  # esto se hace UNA sola vez, no en cada vuelta del bucle
+
 while true; do
-    clear
-    echo "======================================"
-    echo "         COMPAQ CD PLAYER"
-    echo "======================================"
-    echo
-    echo "Unidad  : $DEVICE"
-    echo "Estado  : $(get_status)"
-    echo "Shuffle : $([ "$SHUFFLE" -eq 1 ] && echo ON || echo OFF)"
-    echo
+    tput cup 0 0   # vuelve el cursor a la esquina superior izquierda, sin borrar
+    printf "%-${W}s\n" "======================================"
+    printf "%-${W}s\n" "         COMPAQ CD PLAYER"
+    printf "%-${W}s\n" "======================================"
+    printf "%-${W}s\n" ""
+    printf "%-${W}s\n" "Unidad  : $DEVICE"
+    printf "%-${W}s\n" "Estado  : $(get_status)"
+    printf "%-${W}s\n" "Shuffle : $([ "$SHUFFLE" -eq 1 ] && echo ON || echo OFF)"
+    printf "%-${W}s\n" ""
     TRACK=$(get_track_info)
-    [ -n "$TRACK" ] && echo "$TRACK"
-    echo
-    echo "F7 Anterior"
-    echo "F8 Pausa"
-    echo "F9 Siguiente"
-    echo "F10 Shuffle"
-    echo
-    echo "Q Salir"
+    printf "%-${W}s\n" "$TRACK"
+    printf "%-${W}s\n" ""
+    printf "%-${W}s\n" "F7 Anterior"
+    printf "%-${W}s\n" "F8 Pausa"
+    printf "%-${W}s\n" "F9 Siguiente"
+    printf "%-${W}s\n" "F10 Shuffle"
+    printf "%-${W}s\n" ""
+    printf "%-${W}s\n" "Q Salir"
 
     # lee una tecla, esperando hasta 1s (para refrescar la pantalla igual que antes)
     key=""
